@@ -1,0 +1,80 @@
+# The number of running kresd (Knot Resolver daemon) workers
+# If set to 'auto', it is equal to number of CPUs available
+workers: auto
+
+# Fine-tuning few global parameters
+options:
+  glue-checking: "strict"
+  query-loopback: false
+  minimize: true
+  query-case-randomization: true
+  priming: true
+  rebinding-protection: true
+  violators-workarounds: false
+  serve-stale: true
+
+# Network Configuration
+network:
+  do-ipv4: true
+  do-ipv6: true
+  listen:
+    - interface:
+      - 127.0.0.1@5053
+      - ::1@5053
+      kind: dns
+  tls:
+    cert-file: '/etc/knot-resolver/certs/cert.pem'
+    key-file: '/etc/knot-resolver/certs/key.pem'
+
+# RPZ Blocklists Configuration
+local-data:
+  rpz:
+    - file: /etc/knot-resolver/blocklists/hagezi-pro.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-apple.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-samsung.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-oppo-realme.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-xiaomi.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-vivo.rpz
+    - file: /etc/knot-resolver/blocklists/hagezi-winoffice.rpz
+
+# Cache and Prefetch Configuration
+cache:
+  size-max: 250M
+  ttl_min: "5s"
+  ttl_max: "1d"
+  prefetch:
+    expiring: true
+    prediction:
+      period: 24
+      window: 15m
+
+# DNSSEC Configuration
+dnssec: true
+
+# Minimize Logging
+logging:
+  level: crit
+
+# Rate Limit Configuration
+# Maximal number of allowed queries per second from a single host
+rate-limiting:
+  rate-limit: 20
+
+# Lua Configuration
+# Block ANY, HINFO, WKS and NULL queries
+lua:
+  script:  |
+    modules = { 'policy' }
+    function match_query_type(action, target_qtype)
+        return function (state, query)
+            if query.stype == target_qtype then
+                return action
+            else
+                return nil
+            end
+        end
+    end
+    policy.add(match_query_type(policy.DENY, kres.type.ANY))
+    policy.add(match_query_type(policy.DENY, kres.type.HINFO))
+    policy.add(match_query_type(policy.DENY, kres.type.WKS))
+    policy.add(match_query_type(policy.DENY, kres.type.NULL))
